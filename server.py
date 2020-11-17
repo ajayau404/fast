@@ -1,12 +1,17 @@
 #!/usr/bin/env python3.6
-import sys, os, json, time, traceback
+import sys, os, json, time, traceback, logging
 import tornado.ioloop
 import tornado.web
 from tornado import gen, websocket
 from tornado.concurrent import Future
 import asyncio
 
+import utils as u
 import topic_source
+import redis_subscription as sub
+
+ex_dist		= {}
+log 			= u.getLog(extra=ex_dist, level=logging.DEBUG)
 
 class MainHandler(tornado.web.RequestHandler):
     async def get(self):
@@ -24,13 +29,13 @@ class WSScript(tornado.web.RequestHandler):
 
 class EchoWebSocket(websocket.WebSocketHandler):
     def open(self):
-        print("WebSocket opened")
+        log.debug("WebSocket opened")
 
     def on_message(self, message):
         self.write_message(u"You said: " + message)
 
     def on_close(self):
-        print("WebSocket closed")
+        log.debug("WebSocket closed")
 
 class FavIcon(tornado.web.RequestHandler):
     def get(self):
@@ -52,12 +57,21 @@ def main():
     app = make_app()
     app.listen(PORT)
     main_loop = tornado.ioloop.IOLoop().current()
-    print("Starting server on port {}".format(PORT))
+    log.debug("Starting server on port {}".format(PORT))
     # tornado.ioloop.IOLoop.add_callback(cb)
     # tornado.ioloop.PeriodicCallback(lambda: cb(), 4999).start()
     # tornado.ioloop.IOLoop.current().run_sync(topic_source.generateEvent)
-    tornado.ioloop.IOLoop.current().run_sync(topic_source.redisReceive)
     
+    currentLoop = tornado.ioloop.IOLoop.current()
+    # retRecv = await topic_source.redisReceive(loop = currentLoop)
+    # log.debug("retRecv:{}".format(retRecv))
+    # tornado.ioloop.IOLoop.current().run_sync(topic_source.redisReceive)
+    # tornado.ioloop.IOLoop.current().run_sync(topic_source.single_reader)
+    
+    subscribe = sub.RedisChannelSubscribe(currentLoop, log)
+    tornado.ioloop.IOLoop.current().run_sync(subscribe.single_reader)
+    
+
     # tornado.ioloop.IOLoop.current().start()
 
 if __name__ == "__main__":
