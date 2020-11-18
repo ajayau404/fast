@@ -13,6 +13,9 @@ import redis_subscription as sub
 ex_dist		= {}
 log 			= u.getLog(extra=ex_dist, level=logging.DEBUG)
 
+class GlobalSubscriber(object):
+    subscribe = None
+
 class MainHandler(tornado.web.RequestHandler):
     async def get(self):
         file_data = ""
@@ -31,8 +34,10 @@ class EchoWebSocket(websocket.WebSocketHandler):
     def open(self):
         log.debug("WebSocket opened")
 
-    def on_message(self, message):
+    async def on_message(self, message):
         self.write_message(u"You said: " + message)
+        if GlobalSubscriber.subscribe:
+            await GlobalSubscriber.subscribe.addChannel("heartbeat2", self)
 
     def on_close(self):
         log.debug("WebSocket closed")
@@ -62,17 +67,18 @@ def main():
     # tornado.ioloop.PeriodicCallback(lambda: cb(), 4999).start()
     # tornado.ioloop.IOLoop.current().run_sync(topic_source.generateEvent)
     
-    currentLoop = tornado.ioloop.IOLoop.current()
+    # currentLoop = tornado.ioloop.IOLoop.current()
     # retRecv = await topic_source.redisReceive(loop = currentLoop)
     # log.debug("retRecv:{}".format(retRecv))
     # tornado.ioloop.IOLoop.current().run_sync(topic_source.redisReceive)
     # tornado.ioloop.IOLoop.current().run_sync(topic_source.single_reader)
     
-    subscribe = sub.RedisChannelSubscribe(currentLoop, log)
-    tornado.ioloop.IOLoop.current().run_sync(subscribe.single_reader)
+    subscribe = sub.RedisChannelSubscribe(main_loop, log)
+    GlobalSubscriber.subscribe = subscribe
+    tornado.ioloop.IOLoop.current().run_sync(subscribe.channelReader)
     
 
-    # tornado.ioloop.IOLoop.current().start()
+    tornado.ioloop.IOLoop.current().start()
 
 if __name__ == "__main__":
     main()

@@ -7,6 +7,7 @@ def main():
         channel = "heartbeat"
         channelVal = str(time.time())
         redis_conn.publish(channel, channelVal)
+        redis_conn.publish(channel+'2', channelVal)
         print("{} :{} ".format(channel, channelVal))
         time.sleep(1)
         
