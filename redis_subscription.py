@@ -33,6 +33,13 @@ class RedisChannelSubscribe(object):
         )
         # self.log.debug("retSub:{}".format(retSub))
  
+    def removeClosedConns(self, chToRem):
+        for chName in chToRem:
+            for closedConn in chToRem[chName]:
+                if chName in self.channels and closedConn in self.channels[chName]:
+                    del self.channels[chName][closedConn]
+                    # if len(self.channels[chName]):
+                    #     del self.channels[chName]
     async def channelReader(self):
         START_WAIT_SECONDS = 1
         while True:
@@ -46,11 +53,27 @@ class RedisChannelSubscribe(object):
         while await self.multiSubsc.wait_message():
             channel, message = await self.multiSubsc.get()
             chName = channel.name.decode("utf-8")
-            self.log.debug("Got message %s from %s"%(message, chName))
+            # self.log.debug("Got message %s from %s"%(message, chName))
+            chToRem = {}
             if chName in self.channels:
                 for eachConn in self.channels[chName]:
-                    eachConn.write_message(message)
-    
+                    try:
+                        eachConn.write_message(message)
+                    except tornado.websocket.WebSocketClosedError:
+                        if chName not in chToRem:
+                            chToRem[chName] = {}
+                        chToRem[chName][eachConn] = ''
+                        self.log.info("eachConn:%s closed"%(eachConn))
+                    # except:
+                    #     self.log.erro("Exception sending message:%s"%(traceback.format_exc())
+                
+                self.log.info("chToRem: %s, channels:%s"%(chToRem, self.channels))
+                if len(chToRem):
+                    self.log.info("chToRem: %s"%chToRem)
+                    self.removeClosedConns(chToRem)
+                    chToRem = {}
+
+
     async def addChannel(self, channelName, connInfo):
         if channelName not in self.channels:
             retSub = await self.redis.subscribe(
