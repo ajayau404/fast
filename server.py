@@ -9,6 +9,7 @@ import asyncio
 import utils as u
 import topic_source
 import redis_subscription as sub
+import a_validation as validtn
 
 ex_dist		= {}
 log 			= u.getLog(extra=ex_dist, level=logging.DEBUG)
@@ -34,11 +35,17 @@ class EchoWebSocket(websocket.WebSocketHandler):
     def open(self):
         log.debug("WebSocket opened")
 
-    async def on_message(self, message):
-        self.write_message(u"You said: " + message)
-        if GlobalSubscriber.subscribe:
-            await GlobalSubscriber.subscribe.addChannel("heartbeat2", self)
-
+    @validtn.wsValidation
+    async def on_message(self, message="", msg={}):
+        # self.write_message(u"You said: " + message)
+        if "type" in msg and msg["type"] == "subscribe":
+            if "topic" in msg and isinstance(msg["topic"], list):
+                ## TODO: Need to add validation on topics
+                for topic in msg["topic"]:
+                    if GlobalSubscriber.subscribe:
+                        await GlobalSubscriber.subscribe.addChannel(topic, self)
+        else:
+            log.error("Invalid subscription type:")
     def on_close(self):
         log.debug("WebSocket closed")
 

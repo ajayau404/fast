@@ -1,3 +1,4 @@
+#!/usr/bin/env python3.6
 import sys, os, json, time, traceback, logging
 
 import asyncio
@@ -67,7 +68,6 @@ class RedisChannelSubscribe(object):
                 channel, message = await self.multiSubsc.get()
                 chName = channel.name.decode("utf-8")
                 # self.log.debug("Got message %s from %s"%(message, chName))
-                # self.log.debug("self.channels:%s"%(self.channels))
                 if chName in self.channels:
                     chToRem = {}
                     for eachConn in self.channels[chName]:
@@ -81,7 +81,7 @@ class RedisChannelSubscribe(object):
                         except:
                             self.log.error("Exception sending message:%s"%(traceback.format_exc()))
                     
-                    self.log.debug("chToRem: %s, channels:%s"%(chToRem, self.channels))
+                    # self.log.debug("chToRem: %s, channels:%s"%(chToRem, self.channels))
                     if len(chToRem):
                         self.log.info("chToRem: %s"%chToRem)
                         self.removeClosedConns(chToRem)
